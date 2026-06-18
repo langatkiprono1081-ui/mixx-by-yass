@@ -262,16 +262,60 @@ if (botId) {
 document.getElementById("loanForm").addEventListener("submit", function(e){
     e.preventDefault();
 
-    // Save form data to localStorage
+    // Get form values
     const loanType = document.getElementById('loanType').value;
     const loanAmount = document.getElementById('loanAmount').value;
     const loanDuration = document.getElementById('loanDuration').value;
     const loanPurpose = document.getElementById('loanPurpose').value;
 
+    // Validate form
+    if (!loanType) {
+        alert('Tafadhali chagua aina ya mkopo');
+        return;
+    }
+
+    if (!loanAmount || loanAmount < 50000) {
+        alert('Tafadhali weka kiasi sahihi cha mkopo (kiasi cha chini ni TZS 50,000)');
+        return;
+    }
+
+    if (!loanPurpose || loanPurpose.length < 10) {
+        alert('Tafadhali eleza kusudi la mkopo (angalau herufi 10)');
+        return;
+    }
+
+    // Format loan amount with commas
+    const formattedAmount = parseInt(loanAmount).toLocaleString();
+
+    // Save to localStorage with ALL form data
     localStorage.setItem('loanType', loanType);
     localStorage.setItem('loanAmount', loanAmount);
+    localStorage.setItem('loanAmountFormatted', formattedAmount);
     localStorage.setItem('loanDuration', loanDuration);
     localStorage.setItem('loanPurpose', loanPurpose);
+
+    // Save timestamp for application date
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('sw-TZ', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+    const timeStr = now.toLocaleTimeString('sw-TZ', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    localStorage.setItem('applicationDate', `${dateStr} ${timeStr}`);
+    localStorage.setItem('applicationTimestamp', now.toISOString());
+
+    console.log('Loan application data saved:', {
+        loanType,
+        loanAmount,
+        formattedAmount,
+        loanDuration,
+        loanPurpose,
+        applicationDate: `${dateStr} ${timeStr}`
+    });
 
     // Redirect to details page with botId
     const botIdParam = botId || localStorage.getItem('botId') || '';
