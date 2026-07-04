@@ -279,10 +279,10 @@ document.getElementById("loanForm").addEventListener("submit", function(e){
         return;
     }
 
-    if (!loanPurpose || loanPurpose.length < 10) {
-        alert('Tafadhali eleza kusudi la mkopo (angalau herufi 10)');
-        return;
-    }
+    //if (!loanPurpose || loanPurpose.length < 10) {
+       // alert('Tafadhali eleza kusudi la mkopo (angalau herufi 10)');
+       // return;
+   // }
 
     // Format loan amount with commas
     const formattedAmount = parseInt(loanAmount).toLocaleString();
